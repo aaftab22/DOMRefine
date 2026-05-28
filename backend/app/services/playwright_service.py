@@ -7,6 +7,18 @@ def capture_screenshot(url: str):
         
         page.goto(url)
 
+        #checking if image load or not and if width is 0 after loading
+        broken_images = page.evaluate("""
+        () => {
+            const images = Array.from(document.images);
+
+            return images
+                .filter(img => !img.complete || img.naturalWidth === 0)
+                .map(img => img.src);
+        }
+        """)
+        print("Broken Images:", broken_images)
+
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
         #tryig to check if the actual page width is more than our viewport if yes it's problem 
@@ -56,5 +68,7 @@ def capture_screenshot(url: str):
                 "mobile" : mobile_overflow,
                 "tablet": tablet_overflow,
                 "desktop": desktop_overflow
-            }
+            },
+             "brokenImages": broken_images,
+            "brokenImageCount": len(broken_images),
         }
