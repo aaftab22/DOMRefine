@@ -16,7 +16,7 @@ def capture_screenshot(url: str):
             else None
         )
             
-        page.goto(url)
+        page.goto(url, wait_until="networkidle")
 
         if console_errors:
             errors.append({
