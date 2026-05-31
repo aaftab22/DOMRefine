@@ -1,5 +1,23 @@
 from playwright.sync_api import sync_playwright
 
+def get_overflowing_elements(page):
+    return page.evaluate("""
+    () => {
+        return Array.from(document.querySelectorAll('*'))
+            .filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.right > window.innerWidth;
+            })
+            .slice(0, 20)
+            .map(el => ({
+                tag: el.tagName,
+                id: el.id,
+                className: el.className,
+                right: el.getBoundingClientRect().right
+            }));
+    }
+    """)
+
 def capture_screenshot(url: str):
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -57,7 +75,7 @@ def capture_screenshot(url: str):
                 "details": missing_alt_tags
             })
 
-        #checking 
+        #getting all the heading tags
         headings = page.evaluate("""
         () => {
             return Array.from(
@@ -66,7 +84,7 @@ def capture_screenshot(url: str):
         }
         """)
 
-        #checking if there is any heading available 
+        #checking if list contains atleast one heading 
         no_headings = len(headings) == 0
         if no_headings:
             warnings.append({
@@ -90,7 +108,6 @@ def capture_screenshot(url: str):
                 "details": ["More than one H1 found"]
             })
 
-
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
         #tryig to check if the actual page width is more than our viewport if yes it's problem 
@@ -99,6 +116,14 @@ def capture_screenshot(url: str):
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        mobile_element_overflow = get_overflowing_elements(page)
+        if mobile_element_overflow:
+            errors.append({
+                "type": "Mobile Element Overflow",
+                "count": len(mobile_element_overflow),
+                "details": mobile_element_overflow
+            })
+        #taking screnshot here
         page.screenshot(
             path="screenshots/mobile.png",
             full_page=True
@@ -116,6 +141,13 @@ def capture_screenshot(url: str):
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        tablet_element_overflow = get_overflowing_elements(page)
+        if tablet_element_overflow:
+            errors.append({
+                "type": "Tablet Element Overflow",
+                "count": len(tablet_element_overflow),
+                "details": tablet_element_overflow
+            })
         page.screenshot(
             path="screenshots/tablet.png",
             full_page=True
@@ -133,6 +165,13 @@ def capture_screenshot(url: str):
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        desktop_element_overflow = get_overflowing_elements(page)
+        if desktop_element_overflow:
+            errors.append({
+                "type": "Desktop Element Overflow",
+                "count": len(desktop_element_overflow),
+                "details": desktop_element_overflow
+            })
         page.screenshot(
             path="screenshots/desktop.png",
             full_page=True
@@ -142,6 +181,10 @@ def capture_screenshot(url: str):
                 "type": "Desktop Overflow",
                 "details": ["Horizontal overflow detected"]
             })
+
+        print("Mobile Elements:", mobile_element_overflow)
+        print("Tablet Elements:", tablet_element_overflow)
+        print("Desktop Elements:", desktop_element_overflow)
 
         browser.close()
 
