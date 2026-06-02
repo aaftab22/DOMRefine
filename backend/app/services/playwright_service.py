@@ -36,6 +36,7 @@ def capture_screenshot(url: str):
             
         page.goto(url, wait_until="load")
 
+        #checking for title checks
         page_title = page.title()
         missing_page_title = page_title.strip() == ""
 
@@ -44,6 +45,23 @@ def capture_screenshot(url: str):
                 "type": "Missing Page Title",
                 "details": ["No page title found"]
             })
+
+        meta_description = page.evaluate("""
+        () => {
+            const meta = document.querySelector(
+                'meta[name="description"]'
+            );
+
+            return meta ? meta.content : "";
+        }
+        """)
+        if not meta_description.strip():
+            warnings.append({
+                "type": "Missing Meta Description",
+                "details": ["No meta description found"]
+            })
+        print("meta_description", meta_description)
+
 
         if console_errors:
             errors.append({
