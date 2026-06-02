@@ -46,6 +46,7 @@ def capture_screenshot(url: str):
                 "details": ["No page title found"]
             })
 
+        #checking for meta description
         meta_description = page.evaluate("""
         () => {
             const meta = document.querySelector(
@@ -60,8 +61,24 @@ def capture_screenshot(url: str):
                 "type": "Missing Meta Description",
                 "details": ["No meta description found"]
             })
-        print("meta_description", meta_description)
 
+        #checking for empty links
+        empty_links = page.evaluate("""
+        () => {
+            return Array.from(document.querySelectorAll('a'))
+                .filter(a =>
+                    !a.textContent.trim() &&
+                    a.children.length === 0
+                )
+                .map(a => a.href);
+        }
+        """)
+        if empty_links:
+            warnings.append({
+                "type": "Empty Links",
+                "count": len(empty_links),
+                "details": empty_links
+            })
 
         if console_errors:
             errors.append({
@@ -208,10 +225,6 @@ def capture_screenshot(url: str):
                 "type": "Desktop Overflow",
                 "details": ["Horizontal overflow detected"]
             })
-
-        print("Mobile Elements:", mobile_element_overflow)
-        print("Tablet Elements:", tablet_element_overflow)
-        print("Desktop Elements:", desktop_element_overflow)
 
         browser.close()
 
