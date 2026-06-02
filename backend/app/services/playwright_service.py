@@ -34,7 +34,16 @@ def capture_screenshot(url: str):
             else None
         )
             
-        page.goto(url, wait_until="networkidle")
+        page.goto(url, wait_until="load")
+
+        page_title = page.title()
+        missing_page_title = page_title.strip() == ""
+
+        if missing_page_title:
+            warnings.append({
+                "type": "Missing Page Title",
+                "details": ["No page title found"]
+            })
 
         if console_errors:
             errors.append({
