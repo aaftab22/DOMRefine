@@ -39,7 +39,6 @@ def capture_screenshot(url: str):
         #checking for title checks
         page_title = page.title()
         missing_page_title = page_title.strip() == ""
-
         if missing_page_title:
             warnings.append({
                 "type": "Missing Page Title",
@@ -80,6 +79,7 @@ def capture_screenshot(url: str):
                 "details": empty_links
             })
 
+        #checking if console errors
         if console_errors:
             errors.append({
                 "type": "Console Errors",
@@ -87,14 +87,17 @@ def capture_screenshot(url: str):
                 "details": console_errors
             })
 
-        #checking if image load or not and if width is 0 after loading
+        #checking for broken images
         broken_images = page.evaluate("""
         () => {
             const images = Array.from(document.images);
 
             return images
                 .filter(img => !img.complete || img.naturalWidth === 0)
-                .map(img => img.src);
+                .map(img => ({
+                    src: img.src,
+                    alt: img.alt || ""
+                }));
         }
         """)
         if broken_images:
@@ -128,7 +131,7 @@ def capture_screenshot(url: str):
         }
         """)
 
-        #checking if list contains atleast one heading 
+        #checking if list contains at least one heading
         no_headings = len(headings) == 0
         if no_headings:
             warnings.append({
@@ -152,9 +155,118 @@ def capture_screenshot(url: str):
                 "details": ["More than one H1 found"]
             })
 
+        # checking for duplicate IDs
+        duplicate_ids = page.evaluate("""
+        () => {
+            const ids = Array.from(
+                document.querySelectorAll('[id]')
+            ).map(el => el.id);
+
+            return ids.filter(
+                (id, index) => ids.indexOf(id) !== index
+            );
+        }
+        """)
+        if duplicate_ids:
+            warnings.append({
+                "type": "Duplicate IDs",
+                "count": len(set(duplicate_ids)),
+                "details": list(set(duplicate_ids))
+            })
+
+        # checking for inputs without labels
+        inputs_without_labels = page.evaluate("""
+        () => {
+            return Array.from(
+                document.querySelectorAll('input, textarea, select')
+            )
+            .filter(el => {
+                const hasLabel =
+                    document.querySelector(`label[for="${el.id}"]`) ||
+                    el.closest('label');
+
+                return !hasLabel;
+            })
+            .map(el => ({
+                tag: el.tagName,
+                id: el.id || "",
+                type: el.type || ""
+            }));
+        }
+        """)
+        if inputs_without_labels:
+            warnings.append({
+                "type": "Inputs Without Labels",
+                "count": len(inputs_without_labels),
+                "details": inputs_without_labels
+            })        
+
+        # checking for broken Anchor links
+        broken_anchor_links = page.evaluate("""
+        () => {
+            return Array.from(
+                document.querySelectorAll('a[href^="#"]')
+            )
+            .filter(link => {
+                const targetId = link.getAttribute('href').slice(1);
+
+                if (!targetId) return false;
+
+                return !document.getElementById(targetId);
+            })
+            .map(link => ({
+                text: link.textContent.trim(),
+                href: link.getAttribute('href')
+            }));
+        }
+        """)
+        if broken_anchor_links:
+            warnings.append({
+                "type": "Broken Anchor Links",
+                "count": len(broken_anchor_links),
+                "details": broken_anchor_links
+            })
+
+        checker_page = browser.new_page()
+        internal_links = page.evaluate("""
+        () => {
+            return Array.from(document.querySelectorAll('a[href]'))
+                .map(a => a.href)
+                .filter(href => 
+                    href.startsWith(window.location.origin)
+                ); 
+        }
+        """)
+        broken_internal_pages = []
+        for link in set(internal_links):
+            try:
+                response = checker_page.goto(
+                    link,
+                    wait_until="domcontentloaded"
+                )
+
+                if response and response.status >= 400:
+                    broken_internal_pages.append({
+                        "url": link,
+                        "status": response.status
+                    })
+            except Exception as e:
+                broken_internal_pages.append({
+                    "url": link,
+                    "status": str(e)
+                })
+        checker_page.close()
+
+        if broken_internal_pages:
+            errors.append({
+                "type": "Broken Internal Pages",
+                "count": len(broken_internal_pages),
+                "details": broken_internal_pages
+            })
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
-        #tryig to check if the actual page width is more than our viewport if yes it's problem 
+
+        #trying to check if the actual page width is more than our viewport
         mobile_overflow = page.evaluate("""
         () => {
             return document.documentElement.scrollWidth > window.innerWidth;
@@ -167,7 +279,8 @@ def capture_screenshot(url: str):
                 "count": len(mobile_element_overflow),
                 "details": mobile_element_overflow
             })
-        #taking screnshot here
+
+        #taking screenshot here
         page.screenshot(
             path="screenshots/mobile.png",
             full_page=True
