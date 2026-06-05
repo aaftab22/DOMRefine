@@ -18,39 +18,13 @@ def get_overflowing_elements(page):
     }
     """)
 
-#
-def get_offscreen_buttons(page):
-    return page.evaluate("""
-    () => {
-        return Array.from(
-            document.querySelectorAll('button, a')
-        )
-        .filter(el => {
-            const rect = el.getBoundingClientRect();
-
-            return (
-                rect.right > window.innerWidth ||
-                rect.left < 0 ||
-                rect.bottom > window.innerHeight ||
-                rect.top < 0
-            );
-        })
-        .map(el => ({
-            tag: el.tagName,
-            text: el.textContent.trim(),
-            id: el.id || "",
-            className: el.className || ""
-        }));
-    }
-    """)
-
 def capture_screenshot(url: str):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
         errors = []
         warnings = []
-        console_errors = []        
+        console_errors = []
 
         #attaching to console before loading the page
         page.on(
@@ -59,7 +33,7 @@ def capture_screenshot(url: str):
             if msg.type == "error"
             else None
         )
-            
+
         page.goto(url, wait_until="load")
 
         #checking for title checks
@@ -225,19 +199,21 @@ def capture_screenshot(url: str):
                 "type": "Inputs Without Labels",
                 "count": len(inputs_without_labels),
                 "details": inputs_without_labels
-            })        
+            })
 
-        # checking for broken Anchor links
+        # checking for anchor links that point to missing IDs on the page
         broken_anchor_links = page.evaluate("""
         () => {
             return Array.from(
                 document.querySelectorAll('a[href^="#"]')
             )
             .filter(link => {
-                const targetId = link.getAttribute('href').slice(1);
-
+                const href = link.getAttribute('href');
+                if (href === '#' || href === '#!') {
+                    return false;
+                }
+                const targetId = href.slice(1);
                 if (!targetId) return false;
-
                 return !document.getElementById(targetId);
             })
             .map(link => ({
@@ -293,15 +269,6 @@ def capture_screenshot(url: str):
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
 
-        # checking for buttons or links that are rendered outside the viewport
-        mobile_offscreen_buttons = get_offscreen_buttons(page)
-        if mobile_offscreen_buttons:
-            errors.append({
-                "type": "Mobile Offscreen Buttons",
-                "count": len(mobile_offscreen_buttons),
-                "details": mobile_offscreen_buttons
-            })
-
         #trying to check if the actual page width is more than our viewport
         mobile_overflow = page.evaluate("""
         () => {
@@ -330,15 +297,6 @@ def capture_screenshot(url: str):
         #tablet viewport
         page.set_viewport_size({"width":768, "height": 1024})
 
-        # checking for buttons or links that are rendered outside the viewport
-        tablet_offscreen_buttons = get_offscreen_buttons(page)
-        if tablet_offscreen_buttons:
-            errors.append({
-                "type": "Tablet Offscreen Buttons",
-                "count": len(tablet_offscreen_buttons),
-                "details": tablet_offscreen_buttons
-            })
-
         tablet_overflow = page.evaluate("""
         () => {
             return document.documentElement.scrollWidth > window.innerWidth;
@@ -363,16 +321,6 @@ def capture_screenshot(url: str):
 
         #laptop viewport
         page.set_viewport_size({"width":1440, "height": 900})
-
-        # checking for buttons or links that are rendered outside the viewport
-        desktop_offscreen_buttons = get_offscreen_buttons(page)
-
-        if desktop_offscreen_buttons:
-            errors.append({
-                "type": "Desktop Offscreen Buttons",
-                "count": len(desktop_offscreen_buttons),
-                "details": desktop_offscreen_buttons
-            })
 
         desktop_overflow = page.evaluate("""
         () => {
