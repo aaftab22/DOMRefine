@@ -157,21 +157,29 @@ def capture_screenshot(url: str):
 
         # checking for duplicate IDs
         duplicate_ids = page.evaluate("""
-        () => {
-            const ids = Array.from(
-                document.querySelectorAll('[id]')
-            ).map(el => el.id);
-
-            return ids.filter(
-                (id, index) => ids.indexOf(id) !== index
-            );
-        }
-        """)
+            () => {
+                const idGroups = {};
+                document.querySelectorAll('[id]').forEach(el => {
+                    if (!el.id) return;
+                    if (!idGroups[el.id]) idGroups[el.id] = [];
+                    const selector = `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.className ? '.' + el.className.trim().split(/\\s+/).join('.') : ''}`;
+                    idGroups[el.id].push({
+                        tag: el.tagName,
+                        className: el.className || '',
+                        selector: selector
+                    });
+                });
+    
+                return Object.entries(idGroups)
+                    .filter(([, els]) => els.length > 1)
+                    .map(([id, els]) => ({id, count: els.length, elements: els}));
+            }
+            """)
         if duplicate_ids:
             warnings.append({
                 "type": "Duplicate IDs",
-                "count": len(set(duplicate_ids)),
-                "details": list(set(duplicate_ids))
+                "count": len(duplicate_ids),
+                "details": duplicate_ids
             })
 
         # checking for inputs without labels
