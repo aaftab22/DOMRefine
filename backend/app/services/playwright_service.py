@@ -1,4 +1,6 @@
 from playwright.sync_api import sync_playwright
+from app.services.categories.user_facing_audit import *
+from app.services.categories.security_audit import check_security_headers
 
 def trigger_lazy_loading(page):
     page.evaluate("""
@@ -178,8 +180,17 @@ def capture_screenshot(url: str):
             else None
         )
 
-        page.goto(url, wait_until="domcontentloaded")
+        response = page.goto(url, wait_until="domcontentloaded")
         trigger_lazy_loading(page)
+
+        #security audit
+        missing_security_headers = check_security_headers(response)
+        if missing_security_headers:
+            warnings.append({
+                "type": "Missing Security Headers",
+                "count": len(missing_security_headers),
+                "details": missing_security_headers
+            })
 
         #checking for title checks
         page_title = page.title()
@@ -207,16 +218,7 @@ def capture_screenshot(url: str):
             })
 
         #checking for empty links
-        empty_links = page.evaluate("""
-        () => {
-            return Array.from(document.querySelectorAll('a'))
-                .filter(a =>
-                    !a.textContent.trim() &&
-                    a.children.length === 0
-                )
-                .map(a => a.href);
-        }
-        """)
+        empty_links = check_empty_links(page)
         if empty_links:
             warnings.append({
                 "type": "Empty Links",
@@ -233,17 +235,7 @@ def capture_screenshot(url: str):
             })
 
         #checking for broken images
-        broken_images = page.evaluate("""
-        () => {
-            return Array.from(document.images)
-                .filter(img => img.complete && img.naturalWidth === 0)
-                .map(img => ({
-                    src: img.src,
-                    alt: img.alt || ""
-                }));
-        }
-        """)
-
+        broken_images = check_broken_images(page)
         if broken_images:
             errors.append({
                 "type": "Broken Images",
@@ -252,13 +244,7 @@ def capture_screenshot(url: str):
             })
 
         #checking for missin alt tags
-        missing_alt_tags = page.evaluate("""
-        () => {
-            return Array.from(document.images)
-                .filter(img => !img.hasAttribute('alt') || img.alt.trim() === '')
-                .map(img => img.src);
-        }
-        """)
+        missing_alt_tags = check_missing_alt_tags(page)
         if missing_alt_tags:
             warnings.append({
                 "type": "Missing Alt Tags",
@@ -377,8 +363,19 @@ def capture_screenshot(url: str):
                     return false;
                 }
                 const targetId = href.slice(1);
+                
                 if (!targetId) return false;
-                return !document.getElementById(targetId);
+                if (targetId.startsWith('-')) return false;
+                if (targetId.startsWith('user-content-')) return false;
+                
+                try {
+                    return !(
+                        document.getElementById(targetId) ||
+                        document.querySelector(href)
+                    );
+                } catch {
+                    return false;
+                }
             })
             .map(link => ({
                 text: link.textContent.trim(),
@@ -395,51 +392,17 @@ def capture_screenshot(url: str):
                 "details": broken_anchor_links
             })
 
-        # checking for broken internal pages (404, 500, unreachable)
-        request_context = p.request.new_context()
-        internal_links = page.evaluate("""
-        () => {
-            return Array.from(document.querySelectorAll('a[href]'))
-                .map(a => ({
-                    href: a.href,
-                    text: a.textContent.trim()
-                }))
-                .filter(link =>
-                    link.href.startsWith(window.location.origin) &&
-                    !link.href.match(/\\.(pdf|jpg|jpeg|png|svg|webp)$/i)
-                ); 
-        }
-        """)
-        broken_internal_pages = []
-
-        seen_urls = set()
-        for link in internal_links:
-            if link["href"] in seen_urls:
-                continue
-            seen_urls.add(link["href"])
-            try:
-                response = request_context.get(link["href"], timeout=10000)
-
-                if response.status >= 400:
-                    broken_internal_pages.append({
-                        "linkText": link["text"],
-                        "url": link["href"],
-                        "status": response.status
-                    })
-            except Exception as e:
-                broken_internal_pages.append({
-                    "linkText": link["text"],
-                    "url": link["href"],
-                    "status": str(e)
-                })
-        request_context.dispose()
-
+        # checking for broken internal pages
+        broken_internal_pages = check_internal_link(page, browser, p)
         if broken_internal_pages:
             errors.append({
                 "type": "Broken Internal Pages",
                 "count": len(broken_internal_pages),
                 "details": broken_internal_pages
             })
+
+
+
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
 
