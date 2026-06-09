@@ -336,6 +336,13 @@ def capture_screenshot(url: str):
                 document.querySelectorAll('input, textarea, select')
             )
             .filter(el => {
+                if (el.type === 'hidden') return false;
+                
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') {
+                    return false;
+                }
+                
                 const hasLabel =
                     document.querySelector(`label[for="${el.id}"]`) ||
                     el.closest('label');
