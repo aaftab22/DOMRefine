@@ -1,6 +1,8 @@
 from playwright.sync_api import sync_playwright
 from app.services.categories.user_facing_audit import *
 from app.services.categories.security_audit import check_security_headers
+from app.services.categories.accessibility_audit import *
+from app.services.categories.seo_audit import *
 
 def trigger_lazy_loading(page):
     page.evaluate("""
@@ -193,8 +195,7 @@ def capture_screenshot(url: str):
             })
 
         #checking for title checks
-        page_title = page.title()
-        missing_page_title = page_title.strip() == ""
+        missing_page_title = check_page_title(page)
         if missing_page_title:
             warnings.append({
                 "type": "Missing Page Title",
@@ -202,15 +203,7 @@ def capture_screenshot(url: str):
             })
 
         #checking for meta description
-        meta_description = page.evaluate("""
-        () => {
-            const meta = document.querySelector(
-                'meta[name="description"]'
-            );
-
-            return meta ? meta.content : "";
-        }
-        """)
+        meta_description = check_meta_description(page)
         if not meta_description.strip():
             warnings.append({
                 "type": "Missing Meta Description",
@@ -253,16 +246,10 @@ def capture_screenshot(url: str):
             })
 
         #getting all the heading tags
-        headings = page.evaluate("""
-        () => {
-            return Array.from(
-                document.querySelectorAll('h1,h2,h3,h4,h5,h6')
-            ).map(h => h.tagName);
-        }
-        """)
+        headings = get_headings(page)
 
         #checking if list contains at least one heading
-        no_headings = len(headings) == 0
+        no_headings = check_no_headings(headings)
         if no_headings:
             warnings.append({
                 "type": "No Headings",
@@ -270,7 +257,7 @@ def capture_screenshot(url: str):
             })
 
         #checking if there is at least one H1
-        missing_h1 = 'H1' not in headings
+        missing_h1 = check_missing_h1(headings)
         if missing_h1:
             warnings.append({
                 "type": "Missing H1",
@@ -278,7 +265,7 @@ def capture_screenshot(url: str):
             })
 
         #checking id there is more than one H1
-        multiple_h1 = headings.count('H1') > 1
+        multiple_h1 = check_multiple_h1(headings)
         if multiple_h1:
             warnings.append({
                 "type": "Multiple H1",
@@ -286,28 +273,7 @@ def capture_screenshot(url: str):
             })
 
         # checking for duplicate IDs
-        duplicate_ids = page.evaluate("""
-            () => {
-                const idGroups = {};
-                document.querySelectorAll('[id]').forEach(el => {
-                    if (!el.id) return;
-                    if (!idGroups[el.id]) idGroups[el.id] = [];
-                    const className = typeof el.className === 'string'
-                        ? el.className
-                        : (el.className?.baseVal || '');
-                    const selector = `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${className ? '.' + className.trim().split(/\\s+/).join('.') : ''}`;
-                    idGroups[el.id].push({
-                        tag: el.tagName,
-                        className: className,
-                        selector: selector
-                    });
-                });
-
-                return Object.entries(idGroups)
-                    .filter(([, els]) => els.length > 1)
-                    .map(([id, els]) => ({id, count: els.length, elements: els}));
-            }
-            """)
+        duplicate_ids = check_duplicate_ids(page)
         if duplicate_ids:
             warnings.append({
                 "type": "Duplicate IDs",
@@ -316,34 +282,7 @@ def capture_screenshot(url: str):
             })
 
         # checking for inputs without labels
-        inputs_without_labels = page.evaluate("""
-        () => {
-            return Array.from(
-                document.querySelectorAll('input, textarea, select')
-            )
-            .filter(el => {
-                if (el.type === 'hidden') return false;
-                
-                const style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') {
-                    return false;
-                }
-                
-                const hasLabel =
-                    document.querySelector(`label[for="${el.id}"]`) ||
-                    el.closest('label');
-
-                return !hasLabel;
-            })
-            .map(el => ({
-                "tag": el.tagName,
-                "id": el.id || "",
-                "type": el.type || "",
-                "name": el.name || "",
-                "placeholder": el.placeholder || ""
-            }));
-        }
-        """)
+        inputs_without_labels = check_inputs_without_labels(page)
         if inputs_without_labels:
             warnings.append({
                 "type": "Inputs Without Labels",
@@ -352,39 +291,7 @@ def capture_screenshot(url: str):
             })
 
         # checking for anchor links that point to missing IDs on the page
-        broken_anchor_links = page.evaluate("""
-        () => {
-            return Array.from(
-                document.querySelectorAll('a[href^="#"]')
-            )
-            .filter(link => {
-                const href = link.getAttribute('href');
-                if (href === '#' || href === '#!') {
-                    return false;
-                }
-                const targetId = href.slice(1);
-                
-                if (!targetId) return false;
-                if (targetId.startsWith('-')) return false;
-                if (targetId.startsWith('user-content-')) return false;
-                
-                try {
-                    return !(
-                        document.getElementById(targetId) ||
-                        document.querySelector(href)
-                    );
-                } catch {
-                    return false;
-                }
-            })
-            .map(link => ({
-                text: link.textContent.trim(),
-                href: link.getAttribute('href'),
-                "id": link.id || "",
-                "className": link.className || "",
-            }));
-        }
-        """)
+        broken_anchor_links = check_broken_anchor_links(page)
         if broken_anchor_links:
             warnings.append({
                 "type": "Broken Anchor Links",
@@ -393,15 +300,19 @@ def capture_screenshot(url: str):
             })
 
         # checking for broken internal pages
-        broken_internal_pages = check_internal_link(page, browser, p)
+        broken_internal_pages, unverifiable_pages = (check_internal_link(page, browser, p))
         if broken_internal_pages:
             errors.append({
                 "type": "Broken Internal Pages",
                 "count": len(broken_internal_pages),
                 "details": broken_internal_pages
             })
-
-
+        if unverifiable_pages:
+            warnings.append({
+                "type": "Unverifiable Internal Pages",
+                "count": len(unverifiable_pages),
+                "details": unverifiable_pages
+            })
 
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
@@ -429,7 +340,6 @@ def capture_screenshot(url: str):
                 "count": len(mobile_element_overflow),
                 "details": mobile_element_overflow
             })
-
 
         #taking screenshot here
         page.screenshot(
@@ -475,7 +385,9 @@ def capture_screenshot(url: str):
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+
         desktop_element_overflow = get_overflowing_elements(page)
+
         if desktop_element_overflow:
             errors.append({
                 "type": "Desktop Element Overflow",

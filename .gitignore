@@ -5,3 +5,5 @@ __pycache__/
 screenshots/
 .env
 .idea
+*.md
+*.pdf
