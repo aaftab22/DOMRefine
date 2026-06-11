@@ -30,12 +30,23 @@ def check_broken_images(page):
 #checking for missing alt tags
 def check_missing_alt_tags(page):
     missing_alt_tags = page.evaluate("""
-            () => {
-                return Array.from(document.images)
-                    .filter(img => !img.hasAttribute('alt') || img.alt.trim() === '')
-                    .map(img => img.src);
-            }
-            """)
+    () => {
+        return Array.from(document.images)
+            .filter(img => {
+                const src = img.src || "";
+
+                // Skip base64 / inline SVGs
+                if (src.startsWith("data:")) return false;
+
+                // Skip tracking pixels
+                const rect = img.getBoundingClientRect();
+                if (rect.width <= 1 || rect.height <= 1) return false;
+
+                return !img.hasAttribute("alt") || img.alt.trim() === "";
+            })
+            .map(img => img.src);
+    }
+    """)
     return missing_alt_tags
 
 # checking for anchor links that point to missing IDs on the page
