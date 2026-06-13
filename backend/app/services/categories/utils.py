@@ -39,7 +39,7 @@ def get_overflowing_elements(page):
             while (parent) {
                 const style = window.getComputedStyle(parent);
                 // auto/scroll = native scroller. hidden = JS controlled carousel
-                if (style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'hidden') {
+                if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
                     return true; 
                 }
                 parent = parent.parentElement;
@@ -47,13 +47,13 @@ def get_overflowing_elements(page):
             return false;
         }
 
-        return Array.from(document.querySelectorAll('button, a, input, textarea, select'))
+        return Array.from(document.querySelectorAll('div, section, article, form, img, table, button, a, input, textarea, select'))
             .filter(el => {
                 const rect = el.getBoundingClientRect();
                 if (!isElementVisibleAndOnScreen(el, rect)) return false;
 
                 // Overflow check
-                if (rect.right > window.innerWidth + 10) {
+                if (rect.right > window.innerWidth + 1) {
                     // NEW: If it overflows, is it inside a carousel?
                     if (hasScrollableParent(el)) {
                         return false; // Safely contained, ignore it

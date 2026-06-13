@@ -3,11 +3,7 @@ from app.services.categories.user_facing_audit import *
 from app.services.categories.security_audit import check_security_headers
 from app.services.categories.accessibility_audit import *
 from app.services.categories.seo_audit import *
-from app.services.categories.utill import (
-    trigger_lazy_loading,
-    get_overlapping_elements,
-    get_overflowing_elements
-)
+from app.services.categories.utils import *
 
 def capture_screenshot(url: str):
     with sync_playwright() as p:
@@ -159,23 +155,25 @@ def capture_screenshot(url: str):
 
         #mobile viewPort
         page.set_viewport_size({"width":390, "height": 844})
+        # taking screenshot here
+        page.screenshot(
+            path="screenshots/mobile.png",
+            full_page=True
+        )
 
-        # checking for overlapping elements for mobile
-        mobile_overlaps = get_overlapping_elements(page)
-
-        if mobile_overlaps:
-            errors.append({
-                "type": "Mobile Overlapping Elements",
-                "count": len(mobile_overlaps),
-                "details": mobile_overlaps
-            })
-
-        #trying to check if the actual page width is more than our viewport
-        mobile_overflow = page.evaluate("""
+        #trying to check if the actual page width is more than our viewport (Horizontal overflow)
+        mobile_scroll_overflow = page.evaluate("""
         () => {
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        if mobile_scroll_overflow:
+            errors.append({
+                "type": "Mobile Scroll Overflow",
+                "details": ["Horizontal overflow detected"]
+            })
+
+        #checking for the actual element causing the overflow
         mobile_element_overflow = get_overflowing_elements(page)
         if mobile_element_overflow:
             errors.append({
@@ -183,26 +181,39 @@ def capture_screenshot(url: str):
                 "count": len(mobile_element_overflow),
                 "details": mobile_element_overflow
             })
-
-        #taking screenshot here
-        page.screenshot(
-            path="screenshots/mobile.png",
-            full_page=True
+        mobile_overflow = (
+            mobile_scroll_overflow
+            or len(mobile_element_overflow) > 0
         )
-        if mobile_overflow:
+
+        # checking for overlapping elements for mobile
+        mobile_overlaps = get_overlapping_elements(page)
+        if mobile_overlaps:
             errors.append({
-                "type": "Mobile Overflow",
-                "details": ["Horizontal overflow detected"]
+                "type": "Mobile Overlapping Elements",
+                "count": len(mobile_overlaps),
+                "details": mobile_overlaps
             })
 
         #tablet viewport
         page.set_viewport_size({"width":768, "height": 1024})
+        # taking screenshot here
+        page.screenshot(
+            path="screenshots/tablet.png",
+            full_page=True
+        )
 
-        tablet_overflow = page.evaluate("""
+        tablet_scroll_overflow = page.evaluate("""
         () => {
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        if tablet_scroll_overflow:
+            errors.append({
+                "type": "Tablet Scroll Overflow",
+                "details": ["Horizontal overflow detected"]
+            })
+
         tablet_element_overflow = get_overflowing_elements(page)
         if tablet_element_overflow:
             errors.append({
@@ -210,42 +221,43 @@ def capture_screenshot(url: str):
                 "count": len(tablet_element_overflow),
                 "details": tablet_element_overflow
             })
+
+        tablet_overflow = (
+            tablet_scroll_overflow
+            or len(tablet_element_overflow) > 0
+        )
+
+        #desktop viewport
+        page.set_viewport_size({"width":1440, "height": 900})
+        # taking screenshot here
         page.screenshot(
-            path="screenshots/tablet.png",
+            path="screenshots/desktop.png",
             full_page=True
         )
-        if tablet_overflow:
-            errors.append({
-                "type": "Tablet Overflow",
-                "details": ["Horizontal overflow detected"]
-            })
 
-        #laptop viewport
-        page.set_viewport_size({"width":1440, "height": 900})
-
-        desktop_overflow = page.evaluate("""
+        desktop_scroll_overflow = page.evaluate("""
         () => {
             return document.documentElement.scrollWidth > window.innerWidth;
         }
         """)
+        if desktop_scroll_overflow:
+            errors.append({
+                "type": "Desktop Scroll Overflow",
+                "details": ["Horizontal overflow detected"]
+            })
 
         desktop_element_overflow = get_overflowing_elements(page)
-
         if desktop_element_overflow:
             errors.append({
                 "type": "Desktop Element Overflow",
                 "count": len(desktop_element_overflow),
                 "details": desktop_element_overflow
             })
-        page.screenshot(
-            path="screenshots/desktop.png",
-            full_page=True
+
+        desktop_overflow = (
+            desktop_scroll_overflow
+            or len(desktop_element_overflow) > 0
         )
-        if desktop_overflow:
-            errors.append({
-                "type": "Desktop Overflow",
-                "details": ["Horizontal overflow detected"]
-            })
 
         browser.close()
 
