@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from app.api.audit import router
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.database.db import Base, engine
+from app.models.audit_model import Audit
 app = FastAPI()
+
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
