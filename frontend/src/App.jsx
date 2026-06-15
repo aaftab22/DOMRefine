@@ -1,85 +1,94 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Navbar from "./components/Navbar";
+import HeroSection from "./components/HeroSection";
+import FeaturesSection from "./components/FeaturesSection";
+import ContactSection from "./components/ContactSection";
+import Footer from "./components/Footer";
+import LoadingScreen from "./components/LoadingScreen";
+
+// ── View state machine ──────────────────────────────────────────
+// 'landing'  → user is on the landing page
+// 'loading'  → audit is in progress (fullscreen, no nav)
+// 'report'   → (future) audit results
+// ───────────────────────────────────────────────────────────────
 
 function App() {
-  const [url, setUrl] = useState("");
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [view, setView]     = useState("landing");   // current screen
+  const [url, setUrl]       = useState("");
+  const [auditUrl, setAuditUrl] = useState("");       // URL captured at submission
+  const auditRef            = useRef(null);
 
-  const runAudit = async () => {
-    setResult(null);
-    setLoading(true);
-    try {
-        
-      const response = await fetch(
-        `http://127.0.0.1:8000/audit?url=${encodeURIComponent(url)}`
-      );
-      const data = await response.json();
-      setResult(data);
-    }
-    finally {
-      setLoading(false);
-    }
+  // ── Handlers ────────────────────────────────────────────────
+  const handleStartAudit = () => {
+    auditRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Called when the user submits a URL to audit
+  const handleRunAudit = () => {
+    if (!url.trim()) return;
+    setAuditUrl(url.trim());
+    setView("loading");        // immediately navigate to loading screen
+    // NOTE: backend API call will be wired here in the next step
+  };
+
+  // Cancel: return to landing (backend connection will cancel here later)
+  const handleCancel = () => {
+    setView("landing");
+  };
+
+  // ── Loading screen — fullscreen, no other chrome ────────────
+  if (view === "loading") {
+    return (
+      <LoadingScreen
+        url={auditUrl}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  // ── Landing page ────────────────────────────────────────────
   return (
-    <div>
-      <div className="hero">
-        <h1 >DOMRefine</h1>
+    <>
+      <Navbar onStartAudit={handleStartAudit} />
 
-        <input
-          type="text"
-          placeholder="Enter website URL"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
+      <HeroSection onStartAudit={handleStartAudit} />
 
-        <button
-          onClick={runAudit}
-          disabled={loading}
-        >
-          {loading ? "Auditing..." : "Run Audit"}
-        </button>
-        {loading && (
-          <p>Analyzing website... This may take 10-30 seconds.</p>
-        )}
+      {/* ── Inline Audit Widget ── */}
+      <section id="audit" ref={auditRef} className="audit-widget">
+        <div className="audit-widget__header">
+          <h2>Run a Free Audit</h2>
+          <p>Enter any URL and get a full technical report in seconds.</p>
+        </div>
+
+        <div className="audit-widget__input-row">
+          <input
+            id="audit-url-input"
+            type="text"
+            className="audit-widget__input"
+            placeholder="https://yourwebsite.com"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRunAudit()}
+            autoComplete="off"
+          />
+          <button
+            id="audit-run-button"
+            className="btn-primary"
+            onClick={handleRunAudit}
+            style={{ padding: "8px 24px" }}
+          >
+            Run Audit
+          </button>
+        </div>
+      </section>
+
+      <FeaturesSection />
+      <ContactSection />
+
+      <div className="footer-wrapper">
+        <Footer />
       </div>
-
-      {result && (
-        <>
-          <h2>Score: {result.analysis.score}/100</h2>
-
-          <h3>Summary</h3>
-          <p>{result.analysis.summary}</p>
-
-          <h3>Critical Issues</h3>
-          <ul>
-            {result.analysis.critical_issues.map((issue, index) => (
-              <li key={index}>
-                <strong>{issue.issue}</strong> ({issue.severity})
-                <p>{JSON.stringify(issue.details)}</p>
-              </li>
-            ))}
-          </ul>
-
-          <h3>Warnings</h3>
-          <ul>
-            {result.analysis.warnings.map((warning, index) => (
-              <li key={index}>
-                <strong>{warning.issue}</strong>
-                <p>{JSON.stringify(warning.details)}</p>
-              </li>
-            ))}
-          </ul>
-
-          <h3>Recommended Fixes</h3>
-          <ul>
-            {result.analysis.recommended_fixes.map((fix, index) => (
-              <li key={index}>{fix}</li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
+    </>
   );
 }
 
