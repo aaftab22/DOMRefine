@@ -5,55 +5,103 @@ import FeaturesSection from "./components/FeaturesSection";
 import ContactSection from "./components/ContactSection";
 import Footer from "./components/Footer";
 import LoadingScreen from "./components/LoadingScreen";
+import AuditReport from "./components/AuditReport";
 
-// ── View state machine ──────────────────────────────────────────
-// 'landing'  → user is on the landing page
-// 'loading'  → audit is in progress (fullscreen, no nav)
-// 'report'   → (future) audit results
-// ───────────────────────────────────────────────────────────────
+// ── View state machine ────────────────────────────────────────────
+// 'landing'  → landing page
+// 'loading'  → fullscreen loading screen (backend call in flight)
+// 'report'   → audit report page
+// ─────────────────────────────────────────────────────────────────
 
 function App() {
-  const [view, setView]     = useState("landing");   // current screen
-  const [url, setUrl]       = useState("");
-  const [auditUrl, setAuditUrl] = useState("");       // URL captured at submission
-  const auditRef            = useRef(null);
+  const [view,     setView]     = useState("landing");
+  const [url,      setUrl]      = useState("");
+  const [auditUrl, setAuditUrl] = useState("");
+  const [rawData,  setRawData]  = useState(null);
+  const auditRef                = useRef(null);
+  const abortRef                = useRef(null);   // AbortController for in-flight request
 
-  // ── Handlers ────────────────────────────────────────────────
-  const handleStartAudit = () => {
+  // ── Handlers ───────────────────────────────────────────────────
+
+  const handleScrollToAudit = () => {
     auditRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Called when the user submits a URL to audit
-  const handleRunAudit = () => {
-    if (!url.trim()) return;
-    setAuditUrl(url.trim());
-    setView("loading");        // immediately navigate to loading screen
-    // NOTE: backend API call will be wired here in the next step
+  const handleRunAudit = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+
+    // Capture the URL and immediately navigate to loading screen
+    setAuditUrl(trimmed);
+    setRawData(null);
+    setView("loading");
+
+    // Create an abort controller so Cancel can stop the request
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/audit?url=${encodeURIComponent(trimmed)}`,
+        { signal: controller.signal }
+      );
+      if (!response.ok) throw new Error(`Server error ${response.status}`);
+      const data = await response.json();
+      setRawData(data);
+      setView("report");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        // User cancelled — already navigated back to landing
+        return;
+      }
+      // On real API errors still transition to report with partial data
+      // so the UI doesn't get stuck. Pass a synthetic error payload.
+      console.error("Audit failed:", err);
+      setRawData({
+        "Entered url": trimmed,
+        audit: { errors: [], warnings: [] },
+        analysis: {
+          overall_score: 0,
+          category_scores: { user_facing: 0, security: 0, accessibility: 0, technical: 0, seo: 0 },
+          critical_issues: [{ type: "Connection Error", description: err.message, count: 0 }],
+          warnings: [],
+          recommended_fixes: [],
+        },
+        created_at: new Date().toISOString(),
+      });
+      setView("report");
+    }
   };
 
-  // Cancel: return to landing (backend connection will cancel here later)
   const handleCancel = () => {
+    abortRef.current?.abort();
     setView("landing");
   };
 
-  // ── Loading screen — fullscreen, no other chrome ────────────
+  const handleNewAudit = () => {
+    setRawData(null);
+    setView("landing");
+  };
+
+  // ── Screens ────────────────────────────────────────────────────
+
   if (view === "loading") {
-    return (
-      <LoadingScreen
-        url={auditUrl}
-        onCancel={handleCancel}
-      />
-    );
+    return <LoadingScreen url={auditUrl} onCancel={handleCancel} />;
   }
 
-  // ── Landing page ────────────────────────────────────────────
+  if (view === "report" && rawData) {
+    return <AuditReport rawData={rawData} onNewAudit={handleNewAudit} />;
+  }
+
+  // ── Landing ───────────────────────────────────────────────────
+
   return (
     <>
-      <Navbar onStartAudit={handleStartAudit} />
+      <Navbar onStartAudit={handleScrollToAudit} />
 
-      <HeroSection onStartAudit={handleStartAudit} />
+      <HeroSection onStartAudit={handleScrollToAudit} />
 
-      {/* ── Inline Audit Widget ── */}
+      {/* Inline audit widget */}
       <section id="audit" ref={auditRef} className="audit-widget">
         <div className="audit-widget__header">
           <h2>Run a Free Audit</h2>
