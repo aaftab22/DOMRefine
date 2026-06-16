@@ -69,11 +69,11 @@ def calculate_scores(audit_result):
         for w in raw_warnings
     ]
 
-    return {
+    return {    
         "overall_score": overall_score,
         "category_scores": category_scores,
         "summary": "Backup scoring used because AI analysis was unavailable.",
-        "critical_issues": errors,
+        "errors": errors,
         "warnings": warnings,
         "recommended_fixes": [],
         "analysis_source": "manual"
