@@ -53,6 +53,7 @@ def calculate_scores(audit_result):
 
     errors = [
         {
+            "category": e["category"],
             "issue": e["type"],
             "severity": SEVERITY_MAP.get(e["type"], "medium"),
             "details": str(e["details"])
@@ -62,6 +63,7 @@ def calculate_scores(audit_result):
 
     warnings = [
         {
+            "category": w["category"],
             "issue": w["type"],
             "severity": SEVERITY_MAP.get(w["type"], "low"),
             "details": str(w["details"])

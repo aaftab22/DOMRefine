@@ -33,6 +33,7 @@ def analyze_audit(audit_result):
 
             "errors": [
                 {
+                    "category": "",
                     "issue": "",
                     "severity": "",
                     "details": ""
@@ -41,6 +42,7 @@ def analyze_audit(audit_result):
 
             "warnings": [
                 {
+                    "category": "",
                     "issue": "",
                     "severity": "",
                     "details": ""
@@ -60,6 +62,7 @@ def analyze_audit(audit_result):
     - Do not add extra fields.
     - overall_score must be between 0 and 100
     - each category score must be between 0 and 100
+    - category must be one of: user_facing, security, accessibility, technical, seo
     - errors must be an array
     - warnings must be an array
     - severity must be one of: critical, high, medium, low
