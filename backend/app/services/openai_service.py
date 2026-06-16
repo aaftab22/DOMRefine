@@ -21,32 +21,32 @@ def analyze_audit(audit_result):
         {{
             "overall_score": 0,
 
-            "category_scores": {
+            "category_scores": {{
                 "user_facing": 0,
                 "security": 0,
                 "accessibility": 0,
                 "technical": 0,
                 "seo": 0
-            },
+            }},
 
             "summary": "",
 
             "errors": [
-                {
+                {{
                     "category": "",
                     "issue": "",
                     "severity": "",
                     "details": ""
-                }
+                }}
             ],
 
             "warnings": [
-                {
+                {{
                     "category": "",
                     "issue": "",
                     "severity": "",
                     "details": ""
-                }
+                }}
             ],
 
             "recommended_fixes": [
