@@ -1,8 +1,6 @@
 def calculate_scores(audit_result):
-    errors = audit_result.get("errors", [])
-    warnings = audit_result.get("warnings", [])
-
-    overall_score = 100
+    raw_errors = audit_result.get("errors", [])
+    raw_warnings = audit_result.get("warnings", [])
 
     category_scores = {
         "user_facing": 100,
@@ -12,7 +10,16 @@ def calculate_scores(audit_result):
         "seo": 100
     }
 
-    for error in errors:
+    SEVERITY_MAP = {
+        "Mobile Element Overflow": "high",
+        "Broken Images": "medium",
+        "Broken Internal Pages": "high",
+        "Missing Security Headers": "medium",
+        "Inputs Without Labels": "medium",
+        "Multiple H1": "low"
+    }
+
+    for error in raw_errors:
         issue_type = error.get("type")
 
         if issue_type == "Mobile Element Overflow":
@@ -24,7 +31,7 @@ def calculate_scores(audit_result):
         elif issue_type == "Broken Internal Pages":
             category_scores["technical"] -= 15
 
-    for warning in warnings:
+    for warning in raw_warnings:
         issue_type = warning.get("type")
 
         if issue_type == "Missing Security Headers":
@@ -37,14 +44,37 @@ def calculate_scores(audit_result):
             category_scores["seo"] -= 10
 
     for category in category_scores:
-        category_scores[category] = max(20, min(100, category_scores[category]))
+        category_scores[category] = max(
+            20,
+            min(100, category_scores[category])
+        )
 
     overall_score = sum(category_scores.values()) // len(category_scores)
+
+    errors = [
+        {
+            "issue": e["type"],
+            "severity": SEVERITY_MAP.get(e["type"], "medium"),
+            "details": str(e["details"])
+        }
+        for e in raw_errors
+    ]
+
+    warnings = [
+        {
+            "issue": w["type"],
+            "severity": SEVERITY_MAP.get(w["type"], "low"),
+            "details": str(w["details"])
+        }
+        for w in raw_warnings
+    ]
 
     return {
         "overall_score": overall_score,
         "category_scores": category_scores,
+        "summary": "Backup scoring used because AI analysis was unavailable.",
         "critical_issues": errors,
         "warnings": warnings,
-        "recommended_fixes": []
+        "recommended_fixes": [],
+        "analysis_source": "manual"
     }
