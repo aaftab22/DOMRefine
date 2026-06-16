@@ -5,11 +5,8 @@ import json
 
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-
 def analyze_audit(audit_result):
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     prompt = f"""
         You are a website QA expert.
         Analyze this audit result:
