@@ -28,6 +28,7 @@ def capture_screenshot(url: str):
         missing_security_headers = check_security_headers(response)
         if missing_security_headers:
             warnings.append({
+                "category": "security",
                 "type": "Missing Security Headers",
                 "count": len(missing_security_headers),
                 "details": missing_security_headers
@@ -37,6 +38,7 @@ def capture_screenshot(url: str):
         missing_page_title = check_page_title(page)
         if missing_page_title:
             warnings.append({
+                "category": "seo",
                 "type": "Missing Page Title",
                 "details": ["No page title found"]
             })
@@ -45,6 +47,7 @@ def capture_screenshot(url: str):
         meta_description = check_meta_description(page)
         if not meta_description.strip():
             warnings.append({
+                "category": "seo",
                 "type": "Missing Meta Description",
                 "details": ["No meta description found"]
             })
@@ -53,6 +56,7 @@ def capture_screenshot(url: str):
         empty_links = check_empty_links(page)
         if empty_links:
             warnings.append({
+                "category": "seo",
                 "type": "Empty Links",
                 "count": len(empty_links),
                 "details": empty_links
@@ -61,6 +65,7 @@ def capture_screenshot(url: str):
         #checking if console errors
         if console_errors:
             errors.append({
+                "category": "technical",
                 "type": "Console Errors",
                 "count": len(console_errors),
                 "details": console_errors
@@ -70,6 +75,7 @@ def capture_screenshot(url: str):
         broken_images = check_broken_images(page)
         if broken_images:
             errors.append({
+                "category": "user_facing",
                 "type": "Broken Images",
                 "count": len(broken_images),
                 "details": broken_images
@@ -79,6 +85,7 @@ def capture_screenshot(url: str):
         missing_alt_tags = check_missing_alt_tags(page)
         if missing_alt_tags:
             warnings.append({
+                "category": "accessibility",
                 "type": "Missing Alt Tags",
                 "count": len(missing_alt_tags),
                 "details": missing_alt_tags
@@ -91,6 +98,7 @@ def capture_screenshot(url: str):
         no_headings = check_no_headings(headings)
         if no_headings:
             warnings.append({
+                "category": "seo",
                 "type": "No Headings",
                 "details": ["No heading tags found on page"]
             })
@@ -99,6 +107,7 @@ def capture_screenshot(url: str):
         missing_h1 = check_missing_h1(headings)
         if missing_h1:
             warnings.append({
+                "category": "seo",
                 "type": "Missing H1",
                 "details": ["No H1 heading found"]
             })
@@ -107,6 +116,7 @@ def capture_screenshot(url: str):
         multiple_h1 = check_multiple_h1(headings)
         if multiple_h1:
             warnings.append({
+                "category": "seo",
                 "type": "Multiple H1",
                 "details": ["More than one H1 found"]
             })
@@ -115,6 +125,7 @@ def capture_screenshot(url: str):
         duplicate_ids = check_duplicate_ids(page)
         if duplicate_ids:
             warnings.append({
+                "category": "accessibility",
                 "type": "Duplicate IDs",
                 "count": len(duplicate_ids),
                 "details": duplicate_ids
@@ -124,6 +135,7 @@ def capture_screenshot(url: str):
         inputs_without_labels = check_inputs_without_labels(page)
         if inputs_without_labels:
             warnings.append({
+                "category": "accessibility",
                 "type": "Inputs Without Labels",
                 "count": len(inputs_without_labels),
                 "details": inputs_without_labels
@@ -133,6 +145,7 @@ def capture_screenshot(url: str):
         broken_anchor_links = check_broken_anchor_links(page)
         if broken_anchor_links:
             warnings.append({
+                "category": "user_facing",
                 "type": "Broken Anchor Links",
                 "count": len(broken_anchor_links),
                 "details": broken_anchor_links
@@ -142,12 +155,14 @@ def capture_screenshot(url: str):
         broken_internal_pages, unverifiable_pages = (check_internal_link(page, browser, p))
         if broken_internal_pages:
             errors.append({
+                "category": "user_facing",
                 "type": "Broken Internal Pages",
                 "count": len(broken_internal_pages),
                 "details": broken_internal_pages
             })
         if unverifiable_pages:
             warnings.append({
+                "category": "user_facing",
                 "type": "Unverifiable Internal Pages",
                 "count": len(unverifiable_pages),
                 "details": unverifiable_pages
@@ -169,6 +184,7 @@ def capture_screenshot(url: str):
         """)
         if mobile_scroll_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Mobile Scroll Overflow",
                 "details": ["Horizontal overflow detected"]
             })
@@ -177,6 +193,7 @@ def capture_screenshot(url: str):
         mobile_element_overflow = get_overflowing_elements(page)
         if mobile_element_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Mobile Element Overflow",
                 "count": len(mobile_element_overflow),
                 "details": mobile_element_overflow
@@ -190,6 +207,7 @@ def capture_screenshot(url: str):
         mobile_overlaps = get_overlapping_elements(page)
         if mobile_overlaps:
             errors.append({
+                "category": "user_facing",
                 "type": "Mobile Overlapping Elements",
                 "count": len(mobile_overlaps),
                 "details": mobile_overlaps
@@ -210,6 +228,7 @@ def capture_screenshot(url: str):
         """)
         if tablet_scroll_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Tablet Scroll Overflow",
                 "details": ["Horizontal overflow detected"]
             })
@@ -217,6 +236,7 @@ def capture_screenshot(url: str):
         tablet_element_overflow = get_overflowing_elements(page)
         if tablet_element_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Tablet Element Overflow",
                 "count": len(tablet_element_overflow),
                 "details": tablet_element_overflow
@@ -242,6 +262,7 @@ def capture_screenshot(url: str):
         """)
         if desktop_scroll_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Desktop Scroll Overflow",
                 "details": ["Horizontal overflow detected"]
             })
@@ -249,6 +270,7 @@ def capture_screenshot(url: str):
         desktop_element_overflow = get_overflowing_elements(page)
         if desktop_element_overflow:
             errors.append({
+                "category": "user_facing",
                 "type": "Desktop Element Overflow",
                 "count": len(desktop_element_overflow),
                 "details": desktop_element_overflow
