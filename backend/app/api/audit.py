@@ -15,9 +15,10 @@ def audit(url: str, db: Session = Depends(get_db)):
 
     try:
         gpt_analysis = analyze_audit(audit_result)
-    except Exception:
+    except Exception as e:
+        print(f"OpenAI error: {e}")
         gpt_analysis = None
-
+    
     fallback_analysis = calculate_scores(audit_result)
 
     analysis = gpt_analysis or fallback_analysis

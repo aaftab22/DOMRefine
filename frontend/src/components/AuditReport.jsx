@@ -1,24 +1,56 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import "./AuditReport.css";
-import { adaptReport, CATEGORIES, scoreChip, categoryStatus } from "../utils/reportAdapter";
+import { adaptReport, scoreChip, categoryStatus, CATEGORIES} from "../utils/reportAdapter";
 
-// ── Helpers ───────────────────────────────────────────────────────
-
+//Helpers 
 function fmt(dateStr) {
   try { return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
   catch { return dateStr; }
 }
 
 function severityClass(sev) {
-  if (!sev) return "info";
-  const s = sev.toLowerCase();
-  if (s === "critical") return "critical";
-  if (s === "warning")  return "warning";
-  if (s === "success")  return "success";
-  return "info";
+  return sev?.toLowerCase() || "info";
 }
 
-// ── Score ring (SVG) ──────────────────────────────────────────────
+function deriveCategoryRows(issues) {
+  if (issues.length === 0) {
+    return [
+      {
+        label: "All checks passed",
+        value: "Pass",
+        cls: "val--pass",
+        dot: "secondary"
+      }
+    ];
+  }
+
+  return issues.slice(0, 3).map(issue => {
+    const sev = issue.severity.toLowerCase();
+
+    const dot =
+      sev === "critical"
+        ? "error"
+        : sev === "warning"
+        ? "tertiary"
+        : "secondary";
+
+    const valCls =
+      sev === "critical"
+        ? "val--error"
+        : sev === "warning"
+        ? "val--warning"
+        : "val--pass";
+
+    return {
+      label: issue.issue,
+      value: issue.severity,
+      cls: valCls,
+      dot
+    };
+  });
+}
+
+//Score ring (SVG)
 const RING_CIRCUMFERENCE = 283; // 2π × r=45
 function ScoreRing({ score }) {
   const [animated, setAnimated] = useState(false);
@@ -45,29 +77,26 @@ function ScoreRing({ score }) {
   );
 }
 
-// ── Issue card ────────────────────────────────────────────────────
+//Issue card
 function IssueCard({ issue }) {
-  const sev   = severityClass(issue._severity);
-  const count = issue._count ?? 0;
-  const label = count === 1 ? "1 occurrence" : `${count} occurrences`;
+  const sev = severityClass(issue.severity);
 
   return (
     <div className={`issue-card issue-card--${sev}`}>
       <div className="issue-card__header">
         <div className="issue-card__meta">
           <div className="issue-card__badge-row">
-            <span className={`severity-badge severity-badge--${sev}`}>{issue._severity}</span>
-            <span className="issue-card__title">{issue.type}</span>
+            <span className={`severity-badge severity-badge--${sev}`}>{issue.severity}</span>
+            <span className="issue-card__title">{issue.issue}</span>
           </div>
-          <p className="issue-card__desc">{issue._description}</p>
+          <p className="issue-card__desc">{issue.details}</p>
         </div>
-        <span className="issue-card__count">{label}</span>
       </div>
     </div>
   );
 }
 
-// ── AI insights card ──────────────────────────────────────────────
+//AI insights card
 function AICard({ text }) {
   if (!text) return null;
   return (
@@ -81,11 +110,11 @@ function AICard({ text }) {
   );
 }
 
-// ── Accordion section ─────────────────────────────────────────────
+//Accordion section
 function AccordionSection({ categoryKey, label, issues, aiText, categoryScore, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const issueCount = issues.length;
-  const status     = categoryStatus(issueCount, categoryScore);
+  const status = categoryStatus(issueCount, categoryScore);
 
   return (
     <div className="accordion">
@@ -114,10 +143,9 @@ function AccordionSection({ categoryKey, label, issues, aiText, categoryScore, d
           {/* Issues */}
           {issues.length === 0 ? (
             <IssueCard issue={{
-              type: "No issues found",
-              _severity: "Success",
-              _description: "All checks passed for this category.",
-              _count: 0,
+              issue: "No issues found",
+              severity: "Success",
+              details: "All checks passed for this category.",
             }} />
           ) : (
             issues.map((issue, i) => <IssueCard key={i} issue={issue} />)
@@ -131,28 +159,9 @@ function AccordionSection({ categoryKey, label, issues, aiText, categoryScore, d
   );
 }
 
-// ── Category card (bento grid) ────────────────────────────────────
-
-// Map category keys to representative row items
-function deriveCategoryRows(issues, categoryKey) {
-  if (issues.length === 0) {
-    if (categoryKey === "security") return [{ label: "Vulnerabilities", value: "Pass", cls: "val--pass", dot: "secondary" }];
-    if (categoryKey === "user_facing") return [{ label: "Tap Targets", value: "Pass", cls: "val--pass", dot: "secondary" }, { label: "Viewport Meta", value: "Pass", cls: "val--pass", dot: "secondary" }];
-    return [{ label: "All checks passed", value: "Pass", cls: "val--pass", dot: "secondary" }];
-  }
-  return issues.slice(0, 3).map(issue => {
-    const sev = (issue._severity || "").toLowerCase();
-    const dot = sev === "critical" ? "error" : sev === "warning" ? "tertiary" : "outline";
-    const valCls = sev === "critical" ? "val--error" : sev === "warning" ? "val--warning" : "val--pass";
-    const count = issue._count ?? 0;
-    const value = count > 0 ? `${count} Found` : "Pass";
-    return { label: issue.type, value, cls: valCls, dot };
-  });
-}
-
 function CategoryCard({ category, score, issues }) {
   const chip = scoreChip(score);
-  const rows = deriveCategoryRows(issues, category.key);
+  const rows = deriveCategoryRows(issues);
 
   return (
     <div className="category-card">
@@ -183,12 +192,12 @@ function CategoryCard({ category, score, issues }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────
+//Main component
 function AuditReport({ rawData, onNewAudit }) {
   const report = adaptReport(rawData);
   const {
     url, createdAt, overallScore,
-    categoryScores, byCategory, aiByCategory,
+    categoryScores, byCategory, recommendations,
   } = report;
 
   // Export JSON handler
@@ -306,7 +315,7 @@ function AuditReport({ rawData, onNewAudit }) {
               <div className="score-hero__footer">
                 <div>
                   <div className="score-hero__stat-label">Scanned DOM Nodes</div>
-                  <div className="score-hero__stat-val">{report.overflow ? "1,420" : "1,420"}</div>
+                  <div className="score-hero__stat-val">1,420</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div className="score-hero__stat-label">Load Time</div>
@@ -337,7 +346,7 @@ function AuditReport({ rawData, onNewAudit }) {
                   categoryKey={cat.key}
                   label={cat.label}
                   issues={byCategory[cat.key] ?? []}
-                  aiText={aiByCategory[cat.key]}
+                  aiText={recommendations[0]}
                   categoryScore={categoryScores[cat.key] ?? 100}
                   defaultOpen={idx === 0}
                 />

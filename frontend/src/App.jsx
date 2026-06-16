@@ -6,22 +6,14 @@ import ContactSection from "./components/ContactSection";
 import Footer from "./components/Footer";
 import LoadingScreen from "./components/LoadingScreen";
 import AuditReport from "./components/AuditReport";
-
-// ── View state machine ────────────────────────────────────────────
-// 'landing'  → landing page
-// 'loading'  → fullscreen loading screen (backend call in flight)
-// 'report'   → audit report page
-// ─────────────────────────────────────────────────────────────────
+import { runAudit } from "./services/auditService";
 
 function App() {
-  const [view,     setView]     = useState("landing");
-  const [url,      setUrl]      = useState("");
+  const [view, setView] = useState("landing");
+  const [url, setUrl] = useState("");
   const [auditUrl, setAuditUrl] = useState("");
-  const [rawData,  setRawData]  = useState(null);
-  const auditRef                = useRef(null);
-  const abortRef                = useRef(null);   // AbortController for in-flight request
-
-  // ── Handlers ───────────────────────────────────────────────────
+  const auditRef = useRef(null);
+  const [rawData, setRawData] = useState(null);
 
   const handleScrollToAudit = () => {
     auditRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -30,60 +22,49 @@ function App() {
   const handleRunAudit = async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
+    let normalizedUrl = trimmed;
 
-    // Capture the URL and immediately navigate to loading screen
-    setAuditUrl(trimmed);
-    setRawData(null);
-    setView("loading");
-
-    // Create an abort controller so Cancel can stop the request
-    const controller = new AbortController();
-    abortRef.current = controller;
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = "https://" + normalizedUrl;
+    }
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/audit?url=${encodeURIComponent(trimmed)}`,
-        { signal: controller.signal }
-      );
-      if (!response.ok) throw new Error(`Server error ${response.status}`);
-      const data = await response.json();
+      normalizedUrl = new URL(normalizedUrl).href;
+    }
+    catch {
+      alert("Please enter a valid URL");
+      return;
+    }
+
+    try {
+      setAuditUrl(normalizedUrl);
+      setView("loading");
+      const data = await runAudit(normalizedUrl);
+
+      //temprory
+      console.log(data);
+
       setRawData(data);
       setView("report");
-    } catch (err) {
-      if (err.name === "AbortError") {
-        // User cancelled — already navigated back to landing
-        return;
-      }
-      // On real API errors still transition to report with partial data
-      // so the UI doesn't get stuck. Pass a synthetic error payload.
-      console.error("Audit failed:", err);
-      setRawData({
-        "Entered url": trimmed,
-        audit: { errors: [], warnings: [] },
-        analysis: {
-          overall_score: 0,
-          category_scores: { user_facing: 0, security: 0, accessibility: 0, technical: 0, seo: 0 },
-          critical_issues: [{ type: "Connection Error", description: err.message, count: 0 }],
-          warnings: [],
-          recommended_fixes: [],
-        },
-        created_at: new Date().toISOString(),
-      });
-      setView("report");
+    }
+    catch (error) {
+        console.error(error);
+        setView("landing"); 
     }
   };
 
   const handleCancel = () => {
-    abortRef.current?.abort();
     setView("landing");
   };
 
   const handleNewAudit = () => {
     setRawData(null);
+    setAuditUrl("");
+    setUrl("");
     setView("landing");
   };
 
-  // ── Screens ────────────────────────────────────────────────────
+  //Screens
 
   if (view === "loading") {
     return <LoadingScreen url={auditUrl} onCancel={handleCancel} />;
@@ -93,7 +74,7 @@ function App() {
     return <AuditReport rawData={rawData} onNewAudit={handleNewAudit} />;
   }
 
-  // ── Landing ───────────────────────────────────────────────────
+  // Landing
 
   return (
     <>
@@ -109,9 +90,7 @@ function App() {
         </div>
 
         <div className="audit-widget__input-row">
-          <input
-            id="audit-url-input"
-            type="text"
+          <input id="audit-url-input" type="text"
             className="audit-widget__input"
             placeholder="https://yourwebsite.com"
             value={url}
@@ -119,6 +98,7 @@ function App() {
             onKeyDown={(e) => e.key === "Enter" && handleRunAudit()}
             autoComplete="off"
           />
+          
           <button
             id="audit-run-button"
             className="btn-primary"
@@ -127,6 +107,7 @@ function App() {
           >
             Run Audit
           </button>
+          
         </div>
       </section>
 
