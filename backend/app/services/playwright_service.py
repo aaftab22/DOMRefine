@@ -8,12 +8,17 @@ from app.services.categories.utils import *
 def capture_screenshot(url: str):
     with sync_playwright() as p:
         
+        # saving the memory aggrasively to be in render's 512 limit
         browser = p.chromium.launch(
             headless=True,
             args=[
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-zygote",
                 "--single-process",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
+                "--js-flags=--max-old-space-size=128"
             ],
         )
         
@@ -290,6 +295,7 @@ def capture_screenshot(url: str):
             or len(desktop_element_overflow) > 0
         )
 
+        page.close()
         browser.close()
 
         return {
