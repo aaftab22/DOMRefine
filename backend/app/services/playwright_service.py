@@ -7,7 +7,16 @@ from app.services.categories.utils import *
 
 def capture_screenshot(url: str):
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--single-process",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+            ],
+        )
+        
         page = browser.new_page()
         errors = []
         warnings = []
