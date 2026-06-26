@@ -25,52 +25,65 @@ def trigger_lazy_loading(page):
 def get_overflowing_elements(page):
     return page.evaluate("""
     () => {
+        const clientWidth = document.documentElement.clientWidth || window.innerWidth;
+        const rootWidth = document.documentElement.scrollWidth;
+
         function isElementVisibleAndOnScreen(el, rect) {
-            const style = window.getComputedStyle(el);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
             if (rect.width === 0 || rect.height === 0) return false;
-            if (rect.right < 0 || rect.left > document.documentElement.scrollWidth || rect.bottom < 0) return false;
+
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+            // Protection 1: Ignore transparent slides
+            if (parseFloat(style.opacity) < 0.1) return false;
+
+            if (rect.left > (rootWidth + 15) || rect.right < -15 || rect.bottom < -15) return false;
             return true;
         }
 
-        // NEW: Check if element is safely inside a scrolling container (Carousel)
-        function hasScrollableParent(el) {
+        // Protection 2: The Containment Check (Fixes Swiper carousels)
+        function isContainedByHiddenParent(el) {
             let parent = el.parentElement;
-            while (parent) {
-                const style = window.getComputedStyle(parent);
-                // auto/scroll = native scroller. hidden = JS controlled carousel
-                if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
-                    return true; 
+            while (parent && parent !== document.body && parent !== document.documentElement) {
+                const pStyle = window.getComputedStyle(parent);
+                // If a parent has overflow hidden...
+                if (pStyle.overflowX === 'hidden' || pStyle.overflow === 'hidden') {
+                    const pRect = parent.getBoundingClientRect();
+                    // AND that parent fits on the screen, it safely clips the child.
+                    if (pRect.right <= clientWidth + 5) {
+                        return true; 
+                    }
                 }
                 parent = parent.parentElement;
             }
             return false;
         }
 
-        return Array.from(document.querySelectorAll('div, section, article, form, img, table, button, a, input, textarea, select'))
+        const selectors = 'div, img, table, form, h1, h2, h3, p, a';
+
+        return Array.from(document.querySelectorAll(selectors))
             .filter(el => {
                 const rect = el.getBoundingClientRect();
                 if (!isElementVisibleAndOnScreen(el, rect)) return false;
 
-                // Overflow check
-                if (rect.right > window.innerWidth + 1) {
-                    // NEW: If it overflows, is it inside a carousel?
-                    if (hasScrollableParent(el)) {
-                        return false; // Safely contained, ignore it
-                    }
+                // Visual Overflow Check
+                if (rect.right > clientWidth + 5) {
+                    // If it overflows, check if a parent is safely clipping it
+                    if (isContainedByHiddenParent(el)) return false;
                     return true; // True page-breaking overflow!
                 }
                 return false;
             })
-            .slice(0, 20)
+            .slice(0, 15)
             .map(el => {
                 const rect = el.getBoundingClientRect();
+                const selector = el.id ? `#${el.id}` : el.className ? `.${el.className.split(' ')[0]}` : el.tagName.toLowerCase();
                 return {
                     tag: el.tagName,
                     text: el.innerText?.trim().slice(0, 50) || "",
-                    selector: el.id ? `#${el.id}` : el.className ? `.${el.className.split(' ')[0]}` : el.tagName.toLowerCase(),
-                    right: rect.right,
-                    overflowBy: Math.round(rect.right - window.innerWidth)
+                    selector: selector,
+                    right: Math.round(rect.right),
+                    overflowBy: Math.round(rect.right - clientWidth)
                 };
             });
     }
@@ -79,15 +92,29 @@ def get_overflowing_elements(page):
 def get_overlapping_elements(page):
     return page.evaluate("""
     () => {
-        function isElementVisibleAndOnScreen(el, rect) {
-            const style = window.getComputedStyle(el);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        const clientWidth = document.documentElement.clientWidth || window.innerWidth;
 
-            // NEW: Ignore floating/sticky elements (like WhatsApp buttons or bottom navs)
-            if (style.position === 'fixed' || style.position === 'sticky') return false;
-
+        // NEW: Walks up the DOM to ensure no parent is hiding the element
+        function isEffectivelyVisible(el, rect) {
             if (rect.width === 0 || rect.height === 0) return false;
-            if (rect.right < 0 || rect.left > document.documentElement.scrollWidth || rect.bottom < 0) return false;
+
+            // Ignore if pushed completely off-screen horizontally (fixes translation carousels)
+            if (rect.left > clientWidth || rect.right < 0 || rect.bottom < 0) return false;
+
+            let current = el;
+            while (current && current !== document.body && current !== document.documentElement) {
+                const style = window.getComputedStyle(current);
+
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+                // Ignore elements inside transparent parents (fixes fade carousels)
+                if (parseFloat(style.opacity) < 0.1) return false;
+
+                // Ignore fixed/sticky elements (navbars, chat widgets)
+                if (current === el && (style.position === 'fixed' || style.position === 'sticky')) return false;
+
+                current = current.parentElement;
+            }
             return true;
         }
 
@@ -105,7 +132,7 @@ def get_overlapping_elements(page):
 
         for (const el of rawElements) {
             const rect = el.getBoundingClientRect();
-            if (isElementVisibleAndOnScreen(el, rect)) {
+            if (isEffectivelyVisible(el, rect)) {
                 validElements.push({ el, rect });
             }
         }
@@ -131,7 +158,6 @@ def get_overlapping_elements(page):
 
                     // Threshold: Overlap must be at least 15% of smaller element
                     if (overlapArea >= (smallerArea * 0.15)) {
-
                         const overlapCenterX = Math.max(rectA.left, rectB.left) + (overlapX / 2);
                         const overlapCenterY = Math.max(rectA.top, rectB.top) + (overlapY / 2);
 

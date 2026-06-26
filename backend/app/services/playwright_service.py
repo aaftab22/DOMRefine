@@ -8,7 +8,7 @@ from app.services.categories.utils import *
 def capture_screenshot(url: str):
     with sync_playwright() as p:
         
-        # saving the memory aggrasively to be in render's 512 limit
+        # saving the memory aggressively to be in render's 512 limit
         browser = p.chromium.launch(
             headless=True,
             args=[
