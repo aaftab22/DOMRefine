@@ -1,19 +1,28 @@
 import { useState, useRef } from "react";
-import Navbar from "./components/Navbar";
-import HeroSection from "./components/HeroSection";
-import FeaturesSection from "./components/FeaturesSection";
-import ContactSection from "./components/ContactSection";
-import Footer from "./components/Footer";
-import LoadingScreen from "./components/LoadingScreen";
-import AuditReport from "./components/AuditReport";
-import { runAudit } from "./services/auditService";
+import ShaderBackground from "./components/ShaderBackground";
+import Navbar           from "./components/Navbar";
+import HeroSection      from "./components/HeroSection";
+import FeaturesSection  from "./components/FeaturesSection";
+import ContactSection   from "./components/ContactSection";
+import Footer           from "./components/Footer";
+import LoadingScreen    from "./components/LoadingScreen";
+import AuditReport      from "./components/AuditReport";
+import { runAudit }     from "./services/auditService";
+
+// ── View state machine ────────────────────────────────────────────
+// 'landing'  → full landing page
+// 'loading'  → fullscreen loading (no other UI)
+// 'report'   → audit report page
+// ─────────────────────────────────────────────────────────────────
 
 function App() {
-  const [view, setView] = useState("landing");
-  const [url, setUrl] = useState("");
+  const [view,     setView]     = useState("landing");
+  const [url,      setUrl]      = useState("");
   const [auditUrl, setAuditUrl] = useState("");
-  const auditRef = useRef(null);
-  const [rawData, setRawData] = useState(null);
+  const [rawData,  setRawData]  = useState(null);
+  const auditRef                = useRef(null);
+
+  // ── Handlers ───────────────────────────────────────────────────
 
   const handleScrollToAudit = () => {
     auditRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,49 +31,29 @@ function App() {
   const handleRunAudit = async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
+
     let normalizedUrl = trimmed;
+    if (!/^https?:\/\//i.test(normalizedUrl)) normalizedUrl = "https://" + normalizedUrl;
 
-    if (!/^https?:\/\//i.test(normalizedUrl)) {
-      normalizedUrl = "https://" + normalizedUrl;
-    }
-
-    try {
-      normalizedUrl = new URL(normalizedUrl).href;
-    }
-    catch {
-      alert("Please enter a valid URL");
-      return;
-    }
+    try { normalizedUrl = new URL(normalizedUrl).href; }
+    catch { alert("Please enter a valid URL"); return; }
 
     try {
       setAuditUrl(normalizedUrl);
       setView("loading");
       const data = await runAudit(normalizedUrl);
-
-      //temprory
-      console.log(data);
-
       setRawData(data);
       setView("report");
+    } catch (err) {
+      console.error(err);
+      setView("landing");
     }
-    catch (error) {
-        console.error(error);
-        setView("landing"); 
-    }
   };
 
-  const handleCancel = () => {
-    setView("landing");
-  };
+  const handleCancel   = () => setView("landing");
+  const handleNewAudit = () => { setRawData(null); setAuditUrl(""); setUrl(""); setView("landing"); };
 
-  const handleNewAudit = () => {
-    setRawData(null);
-    setAuditUrl("");
-    setUrl("");
-    setView("landing");
-  };
-
-  //Screens
+  // ── Fullscreen screens (no landing chrome) ─────────────────────
 
   if (view === "loading") {
     return <LoadingScreen url={auditUrl} onCancel={handleCancel} />;
@@ -74,50 +63,67 @@ function App() {
     return <AuditReport rawData={rawData} onNewAudit={handleNewAudit} />;
   }
 
-  // Landing
+  // ── Landing ───────────────────────────────────────────────────
 
   return (
-    <>
+    <div style={{ position: "relative", minHeight: "100vh" }}>
+      {/* ── Fixed WebGL shader — covers the entire page ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
+          pointerEvents: "none",
+        }}
+      >
+        <ShaderBackground style={{ width: "100%", height: "100%" }} />
+      </div>
+
+      {/* ── Page chrome ── */}
       <Navbar onStartAudit={handleScrollToAudit} />
 
-      <HeroSection onStartAudit={handleScrollToAudit} />
+      <main>
+        <HeroSection onStartAudit={handleScrollToAudit} />
 
-      {/* Inline audit widget */}
-      <section id="audit" ref={auditRef} className="audit-widget">
-        <div className="audit-widget__header">
-          <h2>Run a Free Audit</h2>
-          <p>Enter any URL and get a full technical report in seconds.</p>
-        </div>
+        {/* ── Audit widget ── */}
+        <section id="audit" ref={auditRef} className="hp-audit">
+          <div className="hp-audit__inner">
+            <div className="hp-audit__header">
+              <h2 className="hp-audit__title">Run a Free Audit</h2>
+              <p className="hp-audit__subtitle">
+                Enter any URL and get a full technical report in seconds.
+              </p>
+            </div>
 
-        <div className="audit-widget__input-row">
-          <input id="audit-url-input" type="text"
-            className="audit-widget__input"
-            placeholder="https://yourwebsite.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleRunAudit()}
-            autoComplete="off"
-          />
-          
-          <button
-            id="audit-run-button"
-            className="btn-primary"
-            onClick={handleRunAudit}
-            style={{ padding: "8px 24px" }}
-          >
-            Run Audit
-          </button>
-          
-        </div>
-      </section>
+            <div className="hp-audit__form">
+              <input
+                id="audit-url-input"
+                type="text"
+                className="hp-audit__input"
+                placeholder="https://yourwebsite.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRunAudit()}
+                autoComplete="off"
+              />
+              <button
+                id="audit-run-button"
+                className="hp-audit__btn"
+                onClick={handleRunAudit}
+              >
+                Run Audit Now
+              </button>
+            </div>
+          </div>
+        </section>
 
-      <FeaturesSection />
-      <ContactSection />
+        <FeaturesSection />
+        <ContactSection />
+      </main>
 
-      <div className="footer-wrapper">
-        <Footer />
-      </div>
-    </>
+      <Footer />
+    </div>
   );
 }
 

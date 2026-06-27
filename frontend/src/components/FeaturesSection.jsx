@@ -1,78 +1,81 @@
-const features = [
+import { useEffect, useRef } from "react";
+
+const FEATURES = [
   {
-    id: "accessibility",
     icon: "accessibility_new",
-    iconColorClass: "feature-card__icon-wrap--blue",
-    iconTextClass: "text-primary",
     title: "Accessibility",
-    description:
-      "Ensure compliance with WCAG standards. Detect missing ARIA labels, poor contrast ratios, and keyboard navigation traps.",
+    desc: "Ensure compliance with WCAG standards. Detect missing ARIA labels, poor contrast ratios, and keyboard navigation traps.",
+    delay: 0,
   },
   {
-    id: "seo",
-    icon: "travel_explore",
-    iconColorClass: "feature-card__icon-wrap--green",
-    iconTextClass: "text-secondary",
+    icon: "search_check",
     title: "SEO Performance",
-    description:
-      "Identify missing meta tags, broken canonicals, duplicate content, and analyze core web vitals affecting search ranking.",
+    desc: "Identify missing meta tags, broken canonicals, duplicate content, and analyze core web vitals affecting search ranking.",
+    delay: 100,
   },
   {
-    id: "technical",
-    icon: "terminal",
-    iconColorClass: "feature-card__icon-wrap--amber",
-    iconTextClass: "text-warning",
+    icon: "architecture",
     title: "Technical Architecture",
-    description:
-      "Uncover broken links (404s), missing assets, console errors, and insecure mixed-content warnings in the DOM.",
+    desc: "Uncover broken links (404s), missing assets, console errors, and insecure mixed-content warnings in the DOM.",
+    delay: 200,
   },
   {
-    id: "ai-ux",
-    icon: "auto_awesome",
-    iconColorClass: "feature-card__icon-wrap--purple",
-    iconTextClass: "text-primary",
+    icon: "neurology",
     title: "AI UX Review",
-    description:
-      "Leverage ML to detect layout shifts, overlapping elements, and suggest heuristic improvements for complex user interfaces.",
-    hasGlow: true,
+    desc: "Leverage ML to detect layout shifts, overlapping elements, and suggest heuristic improvements for complex user interfaces.",
+    delay: 300,
   },
 ];
 
-function FeaturesSection() {
+export default function FeaturesSection() {
+  const cardRefs = useRef([]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("hp-reveal--visible");
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+    );
+
+    cardRefs.current.forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section
-      className="features"
-      id="features"
-      aria-labelledby="features-headline"
-    >
-      <div className="section-header">
-        <h2 id="features-headline">Comprehensive Analysis</h2>
-        <p>Deep inspection across four critical domains.</p>
-      </div>
+    <section id="features" className="hp-features">
+      <div className="hp-features__inner">
+        <div className="hp-features__header hp-reveal" ref={(el) => (cardRefs.current[0] = el)}>
+          <h2 className="hp-features__title">Comprehensive Analysis</h2>
+          <p className="hp-features__subtitle">Deep inspection across four critical domains.</p>
+        </div>
 
-      <div className="features__grid">
-        {features.map((feature) => (
-          <div key={feature.id} className="feature-card">
-            {feature.hasGlow && <div className="feature-card__glow" />}
-
+        <div className="hp-features__grid">
+          {FEATURES.map((feat, i) => (
             <div
-              className={`feature-card__icon-wrap ${feature.iconColorClass}`}
+              key={feat.title}
+              className="hp-feature-card hp-reveal"
+              ref={(el) => (cardRefs.current[i + 1] = el)}
+              style={{ transitionDelay: `${feat.delay}ms` }}
             >
-              <span
-                className={`material-symbols-outlined ${feature.iconTextClass}`}
-                style={{ fontSize: "24px" }}
-              >
-                {feature.icon}
-              </span>
+              <div className="hp-feature-card__icon-wrap">
+                <span
+                  className="material-symbols-outlined hp-feature-card__icon"
+                  style={{ fontVariationSettings: '"FILL" 0', fontSize: "22px" }}
+                >
+                  {feat.icon}
+                </span>
+              </div>
+              <h3 className="hp-feature-card__title">{feat.title}</h3>
+              <p className="hp-feature-card__desc">{feat.desc}</p>
             </div>
-
-            <h3>{feature.title}</h3>
-            <p>{feature.description}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
 }
-
-export default FeaturesSection;
