@@ -89,7 +89,7 @@ export default function HeroSection({ onStartAudit }) {
                   <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>public</span>
                   Domains
                 </div>
-                <div className="win-domain-box">https://audit-v1.domrefine.dev</div>
+                <div className="win-domain-box">dom-refine-frontend.vercel.app</div>
               </div>
 
               {/* Logs */}
@@ -108,14 +108,14 @@ export default function HeroSection({ onStartAudit }) {
                 <p className="win-score-title">Audit Health Score</p>
                 <div className="win-score-bars">
                   {[
-                    { h: "25%",  o: "0.3"  },
-                    { h: "75%",  o: "1"    },
-                    { h: "50%",  o: "0.6"  },
-                    { h: "40%",  o: "0.4"  },
-                    { h: "60%",  o: "0.8"  },
-                    { h: "20%",  o: "0.2"  },
-                    { h: "40%",  o: "0.5"  },
-                    { h: "50%",  o: "0.7"  },
+                    { h: "25%", o: "0.3" },
+                    { h: "75%", o: "1" },
+                    { h: "50%", o: "0.6" },
+                    { h: "40%", o: "0.4" },
+                    { h: "60%", o: "0.8" },
+                    { h: "20%", o: "0.2" },
+                    { h: "40%", o: "0.5" },
+                    { h: "50%", o: "0.7" },
                   ].map((bar, i) => (
                     <div
                       key={i}

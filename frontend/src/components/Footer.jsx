@@ -16,7 +16,7 @@ export default function Footer() {
             <span className="hp-footer__brand-name">DOMRefine</span>
           </div>
           <p className="hp-footer__copy">
-            © 2024 DOMRefine Technical Systems. All rights reserved.
+            © 2026 DOMRefine Technical Systems. All rights reserved.
           </p>
         </div>
 
