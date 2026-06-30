@@ -1,5 +1,5 @@
 export default function Footer() {
-  const links = ["Docs", "Blog", "Pricing", "Status"];
+  const links = ["Docs", "Blog", "Status"];
 
   return (
     <footer className="hp-footer">

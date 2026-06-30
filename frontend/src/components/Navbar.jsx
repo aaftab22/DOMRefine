@@ -25,7 +25,6 @@ export default function Navbar({ onStartAudit }) {
         <nav aria-label="Main navigation">
           <ul className="hp-nav__links">
             <li><a href="#features">Docs</a></li>
-            <li><a href="#features">Pricing</a></li>
             <li><a href="#features">Features</a></li>
             <li>
               <div className="hp-nav__lang">
