@@ -20,10 +20,16 @@ const FEATURES = [
     delay: 200,
   },
   {
+    icon: "shield",
+    title: "Security",
+    desc: "Audit HTTP security headers (CSP, HSTS, X-Frame-Options), detect missing protections, and flag XSS-prone patterns in your DOM.",
+    delay: 300,
+  },
+  {
     icon: "neurology",
     title: "AI UX Review",
     desc: "Leverage ML to detect layout shifts, overlapping elements, and suggest heuristic improvements for complex user interfaces.",
-    delay: 300,
+    delay: 400,
   },
 ];
 
@@ -51,7 +57,7 @@ export default function FeaturesSection() {
       <div className="hp-features__inner">
         <div className="hp-features__header hp-reveal" ref={(el) => (cardRefs.current[0] = el)}>
           <h2 className="hp-features__title">Comprehensive Analysis</h2>
-          <p className="hp-features__subtitle">Deep inspection across four critical domains.</p>
+          <p className="hp-features__subtitle">Deep inspection across five critical domains.</p>
         </div>
 
         <div className="hp-features__grid">

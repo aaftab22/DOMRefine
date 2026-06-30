@@ -672,7 +672,7 @@ input, textarea { font-family: var(--font-sans); }
 
 @media (min-width: 640px)  { .hp-features__grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1024px) {
-  .hp-features__grid { grid-template-columns: repeat(4, 1fr); }
+  .hp-features__grid { grid-template-columns: repeat(5, 1fr); }
   .hp-features__header { text-align: left; }
 }
 
