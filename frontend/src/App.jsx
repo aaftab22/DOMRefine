@@ -20,6 +20,7 @@ function App() {
   const [url,      setUrl]      = useState("");
   const [auditUrl, setAuditUrl] = useState("");
   const [rawData,  setRawData]  = useState(null);
+  const [useAI,    setUseAI]    = useState(true);
   const auditRef                = useRef(null);
 
   // ── Handlers ───────────────────────────────────────────────────
@@ -41,7 +42,7 @@ function App() {
     try {
       setAuditUrl(normalizedUrl);
       setView("loading");
-      const data = await runAudit(normalizedUrl);
+      const data = await runAudit(normalizedUrl, useAI);
       setRawData(data);
       setView("report");
     } catch (err) {
@@ -114,6 +115,35 @@ function App() {
               >
                 Run Audit Now
               </button>
+            </div>
+
+            {/* AI Analysis setting card */}
+            <div className="hp-audit__ai-card">
+              <div className="hp-audit__ai-card-row">
+                <div className="hp-audit__toggle-info">
+                  <span className="hp-audit__toggle-label">AI Analysis</span>
+                  <span className="hp-audit__toggle-desc">
+                    Generate AI-powered insights and recommendations.
+                    Disable to run only the standard audit.
+                  </span>
+                </div>
+                <button
+                  id="ai-toggle"
+                  role="switch"
+                  aria-checked={useAI}
+                  aria-label="Toggle AI analysis"
+                  className={`hp-toggle${useAI ? " hp-toggle--on" : ""}`}
+                  onClick={() => setUseAI((v) => !v)}
+                >
+                  <span className="hp-toggle__thumb" />
+                </button>
+              </div>
+
+              {!useAI && (
+                <p className="hp-audit__ai-off-hint">
+                  AI analysis is disabled. The audit will run without AI-generated insights.
+                </p>
+              )}
             </div>
           </div>
         </section>
