@@ -10,18 +10,20 @@ import AuditReport      from "./components/AuditReport";
 import { runAudit }     from "./services/auditService";
 
 // ── View state machine ────────────────────────────────────────────
-// 'landing'  → full landing page
-// 'loading'  → fullscreen loading (no other UI)
-// 'report'   → audit report page
+// 'landing'  → landing page (always mounted while on landing/loading)
+// 'loading'  → LoadingScreen renders as a fixed overlay ON TOP of landing
+// 'report'   → audit report page (replaces everything)
 // ─────────────────────────────────────────────────────────────────
 
 function App() {
-  const [view,     setView]     = useState("landing");
-  const [url,      setUrl]      = useState("");
-  const [auditUrl, setAuditUrl] = useState("");
-  const [rawData,  setRawData]  = useState(null);
-  const [useAI,    setUseAI]    = useState(true);
-  const auditRef                = useRef(null);
+  const [view,       setView]       = useState("landing");
+  const [url,        setUrl]        = useState("");
+  const [auditUrl,   setAuditUrl]   = useState("");
+  const [rawData,    setRawData]    = useState(null);
+  const [useAI,      setUseAI]      = useState(true);
+  const [auditError, setAuditError] = useState(null);
+  const auditRef                    = useRef(null);
+  const loadingTimerRef             = useRef(null);  // deferred loading overlay timer
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -29,59 +31,68 @@ function App() {
     auditRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleRunAudit = async () => {
+  const handleRunAudit = async (e) => {
+    e?.preventDefault();
+
     const trimmed = url.trim();
     if (!trimmed) return;
+
+    setAuditError(null);
 
     let normalizedUrl = trimmed;
     if (!/^https?:\/\//i.test(normalizedUrl)) normalizedUrl = "https://" + normalizedUrl;
 
     try { normalizedUrl = new URL(normalizedUrl).href; }
-    catch { alert("Please enter a valid URL"); return; }
+    catch { setAuditError("Please enter a valid URL."); return; }
 
     try {
       setAuditUrl(normalizedUrl);
-      setView("loading");
+
+      // Only show the loading overlay if the request takes > 200ms.
+      // Fast failures (e.g. backend unreachable) won't produce a flash.
+      loadingTimerRef.current = setTimeout(() => setView("loading"), 200);
+
       const data = await runAudit(normalizedUrl, useAI);
+
+      clearTimeout(loadingTimerRef.current); // request done — cancel the timer
       setRawData(data);
       setView("report");
     } catch (err) {
+      clearTimeout(loadingTimerRef.current); // cancel timer before hiding overlay
       console.error(err);
       setView("landing");
+      const isNetwork = err instanceof TypeError && err.message.toLowerCase().includes("fetch");
+      setAuditError(
+        isNetwork
+          ? "Unable to connect to the server. Please make sure the backend is running and try again."
+          : `Audit failed: ${err.message}`
+      );
     }
   };
 
   const handleCancel   = () => setView("landing");
-  const handleNewAudit = () => { setRawData(null); setAuditUrl(""); setUrl(""); setView("landing"); };
+  const handleNewAudit = () => {
+    setRawData(null); setAuditUrl(""); setUrl(""); setAuditError(null); setView("landing");
+  };
 
-  // ── Fullscreen screens (no landing chrome) ─────────────────────
-
-  if (view === "loading") {
-    return <LoadingScreen url={auditUrl} onCancel={handleCancel} />;
-  }
-
+  // ── Report (full replacement — scroll position not relevant) ───
   if (view === "report" && rawData) {
     return <AuditReport rawData={rawData} onNewAudit={handleNewAudit} />;
   }
 
-  // ── Landing ───────────────────────────────────────────────────
+  // ── Landing + optional loading overlay ────────────────────────
 
   return (
     <div style={{ position: "relative", minHeight: "100vh" }}>
-      {/* ── Fixed WebGL shader — covers the entire page ── */}
+      {/* ── Fixed WebGL shader ── */}
       <div
         aria-hidden="true"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: -1,
-          pointerEvents: "none",
-        }}
+        style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none" }}
       >
         <ShaderBackground style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* ── Page chrome ── */}
+      {/* ── Landing page (always mounted while view !== "report") ── */}
       <Navbar onStartAudit={handleScrollToAudit} />
 
       <main>
@@ -104,18 +115,27 @@ function App() {
                 className="hp-audit__input"
                 placeholder="https://yourwebsite.com"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleRunAudit()}
+                onChange={(e) => { setUrl(e.target.value); setAuditError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleRunAudit(e)}
                 autoComplete="off"
               />
               <button
                 id="audit-run-button"
+                type="button"
                 className="hp-audit__btn"
                 onClick={handleRunAudit}
               >
                 Run Audit Now
               </button>
             </div>
+
+            {/* Inline error banner */}
+            {auditError && (
+              <div className="hp-audit__error" role="alert">
+                <span className="material-symbols-outlined" style={{ fontSize: "18px", flexShrink: 0 }}>error</span>
+                {auditError}
+              </div>
+            )}
 
             {/* AI Analysis setting card */}
             <div className="hp-audit__ai-card">
@@ -153,6 +173,11 @@ function App() {
       </main>
 
       <Footer />
+
+      {/* ── Loading overlay (fixed, on top of landing) ── */}
+      {view === "loading" && (
+        <LoadingScreen url={auditUrl} onCancel={handleCancel} />
+      )}
     </div>
   );
 }
