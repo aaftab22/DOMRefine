@@ -65,7 +65,7 @@ export function scoreChip(score) {
 export function categoryStatus(issueCount, score) {
   if (issueCount === 0 && score >= 90) return { dot: "secondary", label: "Healthy" };
   if (issueCount === 0)                return { dot: "secondary", label: "Pass" };
-  if (score >= 80)                     return { dot: "secondary", label: "Healthy" };
+  if (score >= 80)                     return { dot: "tertiary",  label: "Minor Issues" };
   if (score >= 70)                     return { dot: "tertiary",  label: "Review Suggested" };
   return                                      { dot: "error",     label: "Action Required" };
 }
