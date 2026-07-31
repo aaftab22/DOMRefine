@@ -10,13 +10,16 @@ from app.services.scoring_service import calculate_scores
 router = APIRouter()
 
 @router.get("/audit")
-def audit(url: str, db: Session = Depends(get_db)):
+def audit(url: str, use_ai: bool = True, db: Session = Depends(get_db)):
     audit_result = capture_screenshot(url)
 
-    try:
-        gpt_analysis = analyze_audit(audit_result)
-    except Exception as e:
-        print(f"OpenAI error: {e}")
+    if use_ai:
+        try:
+            gpt_analysis = analyze_audit(audit_result)
+        except Exception as e:
+            print(f"OpenAI error: {e}")
+            gpt_analysis = None
+    else:
         gpt_analysis = None
     
     fallback_analysis = calculate_scores(audit_result)
